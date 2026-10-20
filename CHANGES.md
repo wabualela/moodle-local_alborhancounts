@@ -4,6 +4,22 @@ All notable changes to local_alborhancounts.
 
 ## [Unreleased]
 
+## [1.1.0] - unreleased (2026102100)
+### Added
+- `\local_alborhancounts\local\cards::count_students()`: the Edwiser course-card student count with one `COUNT`
+  query, the same number as the vendor's `get_enrolled_students()` for every viewer (separate groups included).
+  Request memo always; optional shared cache (`cardcachettl`, default 0 = off) dropped by enrolment, role and
+  capability events. Never throws: returns null so the vendor code counts instead.
+- `vendor-patches/`: `remui-enrolpage-limits` (the enrol page builds only the cards it shows) and `remui-counts`
+  (theme_remui and local_edwiserpagebuilder call the helper), with sha256 pins and `vendorpatch.sh`
+  (status/apply/revert/restore) plus `measure-endpoints.sh`.
+- Status check **Edwiser course-card patch** and hourly task **Verify the Edwiser course-card patch**: report a
+  patched file that lost its hook, a helper that fails, or the counts switched off.
+- `cli/verify_cards.php`: compares the vendor count with ours on real data for one viewer (read-only).
+- Settings `cardcounts`, `cardcachettl`, `vendorpatchcheck`, `vendorpatches`.
+- Tests: helper against a verbatim copy of the vendor function, caches and invalidation, status check, task, and
+  `dev/test_vendorpatch.sh` (run in CI).
+
 ## [1.0.0] - unreleased (2026102000)
 ### Added
 - Daily scheduled task that rewrites `data-alborhan-count` markers in page-builder blocks with the rounded number

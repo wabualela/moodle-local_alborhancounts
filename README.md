@@ -8,6 +8,10 @@ the full user rows of each course, guests included. On a front page with a few l
 the page's server time. This plugin lets the cards be static HTML instead: a scheduled task counts the students
 once a day and writes the rounded numbers into the stored block HTML.
 
+It also makes the Edwiser course cards cheap everywhere else (enrol page, course archive, front page): with the
+small vendor patches in `vendor-patches/`, the cards get their student count from this plugin with one `COUNT`
+query instead of loading every student (see "Course card counts" below).
+
 ## How it works
 
 1. In the page-builder editor, **delete the whole "Featured Courses" component**, that is the element
@@ -49,6 +53,23 @@ static text is the same for everyone). Core `count_enrolled_users()` is used: on
 **Rounding:** 100 or more is rounded down to the hundred, 10–99 to the ten, below 10 is shown as is. A "+" is
 added when the rounded value is below the real count: 4793 → `+4,700`, 4700 → `4,700`, 98 → `+90`, 7 → `7`.
 
+## Course card counts (vendor patch)
+
+`\local_alborhancounts\local\cards::count_students($course, $context)` returns the number the Edwiser card shows
+to the current user: the same population as the vendor's `get_enrolled_students()` (any enrolment, active or not,
+users with `moodle/course:isincompletionreports`, not deleted), including its separate-groups rule (a viewer
+without `moodle/site:accessallgroups` sees only the students of their own groups, and 0 without a group).
+
+- The patched vendor code calls it through a `class_exists()` guard and falls back to its own count when it
+  returns null: plugin not installed, `cardcounts` switched off, or any error.
+- A count that is the same for every viewer is memoised for the request (the front page renders its cards twice).
+  With `cardcachettl` above 0 it is also shared between requests; enrolment, role and capability events drop it.
+  The default 0 always gives the exact number.
+- The **Edwiser course-card patch** status check and the hourly task report a patched file that lost its hook,
+  for example after a theme upgrade. `cli/verify_cards.php --userid=N` compares the vendor count with ours on
+  real data (read-only).
+- How to apply, check and roll back the patches: `vendor-patches/README.md`.
+
 ## Settings
 
 Site administration → Plugins → Local plugins → Alborhan course counts:
@@ -56,16 +77,22 @@ Site administration → Plugins → Local plugins → Alborhan course counts:
 - **Update the counts** (`local_alborhancounts/enabled`, default on): the scheduled task does nothing when off.
 - **Block types** (`local_alborhancounts/blocknames`, default `edwiseradvancedblock`): comma-separated block
   types to search.
+- **Count students for course cards** (`cardcounts`, default on): untick to make the patched cards count with the
+  vendor code again, without changing any file.
+- **Shared cache lifetime** (`cardcachettl`, seconds, default 0 = no shared cache).
+- **Check the vendor patches** (`vendorpatchcheck`, default on) and **Expected vendor patches** (`vendorpatches`,
+  default `remui-counts,remui-enrolpage-limits`).
 
 ## Command line
 
 Run as the web server user from the Moodle code root:
 
 ```bash
-sudo -u www-data php public/local/alborhancounts/cli/update.php            # dry run: counts and planned changes
-sudo -u www-data php public/local/alborhancounts/cli/update.php --execute  # save
-sudo -u www-data php public/local/alborhancounts/cli/restore.php           # list the saved copies
-sudo -u www-data php public/local/alborhancounts/cli/restore.php --backupid=12
+sudo -u www-data php8.4 public/local/alborhancounts/cli/update.php            # dry run: counts and planned changes
+sudo -u www-data php8.4 public/local/alborhancounts/cli/update.php --execute  # save
+sudo -u www-data php8.4 public/local/alborhancounts/cli/restore.php           # list the saved copies
+sudo -u www-data php8.4 public/local/alborhancounts/cli/restore.php --backupid=12
+sudo -u www-data php8.4 public/local/alborhancounts/cli/verify_cards.php --userid=2 --courseids=199,725
 ```
 
 Restoring a copy also undoes any edit made to the block after the copy was taken, so the configuration it
@@ -78,12 +105,16 @@ way core `block_base::instance_config_save()` does.
 
 ## Privacy
 
-No personal data is stored: only per-course totals inside block content and copies of block settings.
+No personal data is stored: only per-course totals inside block content or in the cache, and copies of block
+settings.
 
 ## Development
 
 - `dev/check.sh`: `php -l` and phpcs with the `moodle-extra` standard (`dev/check.sh --install` installs
   moodle-cs into `dev/tools`).
+- `dev/test_vendorpatch.sh`: tests for `vendor-patches/vendorpatch.sh` on a synthetic tree.
+- Deploy without the development files: `rsync --exclude=.git/ --exclude=.github/ --exclude=dev/
+  --exclude=vendor-patches/ --exclude=.gitignore`.
 - PHPUnit tests are in `tests/`; CI runs them with moodle-plugin-ci (`.github/workflows/moodle-plugin-ci.yml`).
   Never run them against a production site.
 

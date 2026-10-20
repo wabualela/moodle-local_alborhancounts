@@ -35,4 +35,14 @@ $tasks = [
         'month' => '*',
         'dayofweek' => '*',
     ],
+    [
+        // Hourly: fails while a vendor file lost its local_alborhancounts hook (see vendor-patches/).
+        'classname' => '\local_alborhancounts\task\verify_vendor_patch',
+        'blocking' => 0,
+        'minute' => '17',
+        'hour' => '*',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ],
 ];

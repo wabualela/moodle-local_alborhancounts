@@ -42,5 +42,41 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    $settings->add(new admin_setting_heading(
+        'local_alborhancounts/cardsheading',
+        new lang_string('cardsheading', 'local_alborhancounts'),
+        new lang_string('cardsheading_desc', 'local_alborhancounts')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_alborhancounts/cardcounts',
+        new lang_string('cardcounts', 'local_alborhancounts'),
+        new lang_string('cardcounts_desc', 'local_alborhancounts'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_alborhancounts/cardcachettl',
+        new lang_string('cardcachettl', 'local_alborhancounts'),
+        new lang_string('cardcachettl_desc', 'local_alborhancounts'),
+        \local_alborhancounts\local\cards::DEFAULT_TTL,
+        PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_alborhancounts/vendorpatchcheck',
+        new lang_string('vendorpatchcheck', 'local_alborhancounts'),
+        new lang_string('vendorpatchcheck_desc', 'local_alborhancounts'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_alborhancounts/vendorpatches',
+        new lang_string('vendorpatches', 'local_alborhancounts'),
+        new lang_string('vendorpatches_desc', 'local_alborhancounts'),
+        'remui-counts,remui-enrolpage-limits',
+        PARAM_TEXT
+    ));
+
     $ADMIN->add('localplugins', $settings);
 }

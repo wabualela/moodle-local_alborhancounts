@@ -1,0 +1,29 @@
+--- a/theme/remui/classes/coursehandler.php
++++ b/theme/remui/classes/coursehandler.php
+@@ -958,7 +958,10 @@
+             // Course enrolled users count.
+             $coursesarray[$count]["enrolleduserscount"] = false;
+             if (get_config('theme_remui', 'enrolleduserscountvisibility')) {
+-                $enrolledcount = count($this->get_enrolled_students($course, $context));
++                // ALBORHAN-PATCH remui-counts v1: count with local_alborhancounts (one COUNT query); vendor code is the fallback.
++                $enrolledcount = class_exists(\local_alborhancounts\local\cards::class)
++                    ? \local_alborhancounts\local\cards::count_students($course, $context) : null;
++                $enrolledcount ??= count($this->get_enrolled_students($course, $context));
+                 $coursesarray[$count]["enrolleduserscount"] = $this->formatcoursecounts($enrolledcount);
+             }
+ 
+--- a/local/edwiserpagebuilder/classes/coursehandler.php
++++ b/local/edwiserpagebuilder/classes/coursehandler.php
+@@ -558,8 +558,11 @@
+             // Course enrolled users count.
+             $coursesarray[$count]["enrolleduserscount"] = false;
+             if (true) {
++                // ALBORHAN-PATCH remui-counts v1: count with local_alborhancounts (one COUNT query); vendor code is the fallback.
++                $enrolledcount = class_exists(\local_alborhancounts\local\cards::class)
++                    ? \local_alborhancounts\local\cards::count_students($course, $context) : null;
+                 $coursesarray[$count]["enrolleduserscount"] = $this->formatcoursecounts(
+-                    count($this->get_enrolled_students($course, $context))
++                    $enrolledcount ?? count($this->get_enrolled_students($course, $context))
+                 );
+             }
+ 

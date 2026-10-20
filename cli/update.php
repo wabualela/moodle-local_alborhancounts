@@ -44,9 +44,9 @@ Options:
   --execute     Save the changes (a copy of each changed block configuration is kept first).
   -h, --help    Show this help.
 
-Example (run as the web server user):
-  sudo -u www-data php local/alborhancounts/cli/update.php
-  sudo -u www-data php local/alborhancounts/cli/update.php --execute
+Example (run as the web server user, from the Moodle code root):
+  sudo -u www-data php8.4 public/local/alborhancounts/cli/update.php
+  sudo -u www-data php8.4 public/local/alborhancounts/cli/update.php --execute
 ";
     exit(0);
 }

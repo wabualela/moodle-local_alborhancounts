@@ -81,6 +81,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phplint
 
+      - name: Vendor patch script tests
+        if: ${{ !cancelled() }}
+        run: PHP=php bash plugin/dev/test_vendorpatch.sh
+
       - name: PHP Mess Detector
         continue-on-error: true # This step will show errors but will not fail
         if: ${{ !cancelled() }}

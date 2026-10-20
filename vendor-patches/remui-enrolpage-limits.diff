@@ -1,0 +1,39 @@
+--- a/theme/remui/classes/EnrolmentPageHandler.php
++++ b/theme/remui/classes/EnrolmentPageHandler.php
+@@ -205,9 +205,12 @@
+         }
+         $context['ismanager'] = utility::check_user_admin_cap($USER);
+         $context['courseimage'] = $coursedata['courseimage'];
+-        $context['relatedcourses'] = $this->get_related_courses();
++        // ALBORHAN-PATCH remui-enrolpage v1: build a card list only if it can be shown (its setting is on, or editing).
++        $context['relatedcourses'] = (get_config("theme_remui", 'showrelatedcourse') || $PAGE->user_is_editing())
++            ? $this->get_related_courses() : false;
+         $context['coursearcivecaturl'] = $CFG->wwwroot . "/course/index.php?categoryid=" . $COURSE->category;
+-        $context['latestcourses'] = $this->get_latest_courses();
++        $context['latestcourses'] = (get_config("theme_remui", 'showlatestcourse') || $PAGE->user_is_editing())
++            ? $this->get_latest_courses() : false;
+         $context['courseurl'] = $CFG->wwwroot . "/course/view.php?id=" . $COURSE->id;
+         $context['hasrelatedcourses'] = get_config("theme_remui", 'showrelatedcourse');
+         $context['haslatestcourses'] = get_config("theme_remui", 'showlatestcourse');
+@@ -421,7 +424,7 @@
+         $search = null;
+         $category = $COURSE->category;
+         $limitfrom = 0;
+-        $limitto = 10;
++        $limitto = 5; // ALBORHAN-PATCH remui-enrolpage v1: was 10; at most 4 are shown, +1 for the current course.
+         $mycourses = null;
+         $categorysort = null;
+         $courses = [];
+@@ -456,7 +459,11 @@
+      */
+     public function get_latest_courses() {
+         global $COURSE, $OUTPUT, $DB;
+-        $datacourse = $DB->get_records('course', null, $sort = 'id DESC', $fields = '*', $limitfrom = 0, $limitnum = 20);
++        // ALBORHAN-PATCH remui-enrolpage v1: was 20 rows; fetch only the shown cards +2 (site course, current course).
++        $alborhanshown = get_config('theme_remui', 'latestcoursecount');
++        $alborhanshown = (is_numeric($alborhanshown) && $alborhanshown > 0) ? min(20, (int)$alborhanshown) : 12;
++        $datacourse = $DB->get_records('course', null, $sort = 'id DESC', $fields = '*', $limitfrom = 0,
++            $limitnum = min(20, $alborhanshown + 2));
+         $totalcount = false;
+         $search = null;
+         $category = null;

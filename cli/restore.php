@@ -43,9 +43,9 @@ Options:
   --backupid=ID  Restore this copy.
   -h, --help     Show this help.
 
-Example (run as the web server user):
-  sudo -u www-data php local/alborhancounts/cli/restore.php
-  sudo -u www-data php local/alborhancounts/cli/restore.php --backupid=12
+Example (run as the web server user, from the Moodle code root):
+  sudo -u www-data php8.4 public/local/alborhancounts/cli/restore.php
+  sudo -u www-data php8.4 public/local/alborhancounts/cli/restore.php --backupid=12
 ";
     exit(0);
 }

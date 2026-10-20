@@ -1,0 +1,4 @@
+# pre-patch sha256, post-patch sha256, path relative to the Moodle public directory.
+# theme_remui 5.2.2 (2026070300), local_edwiserpagebuilder 4.2.26 (2026042200).
+66dcbe2a3aab4d170e4a67bb187e5da7a6e0dd7f4064123a3df58021bb3c8db0 650633ea30c535fef72a8efe30a09f998d7a6442854d90645194b807305b875b theme/remui/classes/coursehandler.php
+b3514bbf38d2fc87fc1c2d4dec9ff41f22fded0aeac02fb7b537d616626555f1 6c1654cae69431c40393eaea4198da2977cd107c89f689373ac9fae434aded9b local/edwiserpagebuilder/classes/coursehandler.php

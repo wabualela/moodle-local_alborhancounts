@@ -1,0 +1,3 @@
+# pre-patch sha256, post-patch sha256, path relative to the Moodle public directory.
+# theme_remui 5.2.2 (2026070300).
+a0e18ebe904a9dce08469bb3e8cb7b7a3b18112127f352a3c1dc6410a8f77c2b c59dfb121552f7f3cfdf63835f1d9abd5530e630d9473bc9272059a4f865078a theme/remui/classes/EnrolmentPageHandler.php
