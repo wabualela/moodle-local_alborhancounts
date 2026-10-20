@@ -260,6 +260,29 @@ final class cards_test extends \advanced_testcase {
     }
 
     /**
+     * With a shared cache, moving a course to another category drops its number (category-level roles change).
+     */
+    public function test_course_move_drops_shared_cache(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+        set_config('cardcachettl', 600, 'local_alborhancounts');
+        $generator = $this->getDataGenerator();
+        $from = $generator->create_category();
+        $to = $generator->create_category();
+        $course = $generator->create_course(['category' => $from->id]);
+        $generator->create_and_enrol($course, 'student');
+        $norole = $generator->create_and_enrol($course, null);
+        $studentrole = (int) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
+        role_assign($studentrole, $norole->id, \core\context\coursecat::instance($from->id)->id);
+        $this->assertSame(2, $this->hook($course));
+
+        move_courses([$course->id], $to->id);
+        $this->new_request();
+        $this->assertSame(1, $this->hook($course));
+    }
+
+    /**
      * A course record without groupmode is counted as a course without groups.
      */
     public function test_record_without_groupmode(): void {

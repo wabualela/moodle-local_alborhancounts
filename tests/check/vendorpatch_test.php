@@ -97,8 +97,10 @@ final class vendorpatch_test extends \advanced_testcase {
         $result = (new vendorpatch([]))->get_result();
         $this->assertSame(result::NA, $result->get_status());
 
-        // CI has no Edwiser plugin, so the real targets are empty too.
+        // No expected patch: the real targets are empty (also on a tree that has the Edwiser plugins).
+        set_config('vendorpatches', '', 'local_alborhancounts');
         $this->assertSame(result::NA, (new vendorpatch())->get_result()->get_status());
+        unset_config('vendorpatches', 'local_alborhancounts');
 
         set_config('cardcounts', 0, 'local_alborhancounts');
         $result = (new vendorpatch([$this->patched()]))->get_result();

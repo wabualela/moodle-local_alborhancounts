@@ -27,7 +27,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $observers = [];
-foreach (['user_enrolment_created', 'user_enrolment_deleted', 'course_deleted'] as $name) {
+// A course move (course_updated) or a category move (course_category_updated) changes which category-level roles and
+// overrides apply, so the count can change too.
+foreach (['user_enrolment_created', 'user_enrolment_deleted', 'course_deleted', 'course_updated'] as $name) {
     $observers[] = ['eventname' => "\\core\\event\\$name", 'callback' => '\local_alborhancounts\observer::course_changed',
         'internal' => false];
 }
@@ -39,7 +41,7 @@ foreach (['capability_assigned', 'capability_unassigned'] as $name) {
     $observers[] = ['eventname' => "\\core\\event\\$name", 'callback' => '\local_alborhancounts\observer::capability_changed',
         'internal' => false];
 }
-foreach (['role_capabilities_updated', 'role_deleted', 'user_deleted'] as $name) {
+foreach (['role_capabilities_updated', 'role_deleted', 'user_deleted', 'course_category_updated'] as $name) {
     $observers[] = ['eventname' => "\\core\\event\\$name", 'callback' => '\local_alborhancounts\observer::purge',
         'internal' => false];
 }

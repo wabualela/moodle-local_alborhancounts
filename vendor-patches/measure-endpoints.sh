@@ -12,7 +12,8 @@ from=$(date -d "$1" +%s) || exit 2
 to=$(date -d "$2" +%s) || exit 2
 shift 2
 [ $# -gt 0 ] || set -- /var/log/nginx/access-moodle.log.1 /var/log/nginx/access-moodle.log
-zcat -f -- "$@" 2>/dev/null | gawk -v from="$from" -v to="$to" '
+for f in "$@"; do [ -r "$f" ] || { echo "cannot read $f (run with sudo?)" >&2; exit 2; }; done
+zcat -f -- "$@" | gawk -v from="$from" -v to="$to" '
 BEGIN {
     split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", m, " ")
     for (i = 1; i <= 12; i++) mon[m[i]] = i
@@ -23,7 +24,9 @@ BEGIN {
     ts = mktime(t[3] " " mon[t[2]] " " t[1] " " t[4] " " t[5] " " t[6])
     if (ts < from || ts >= to) next
     if (!match($0, /"([A-Z]+) ([^ "]*) [^"]*" ([0-9]{3}) /, r)) next
-    if (!match($0, /urt=([0-9.]+)/, u)) next
+    # urt is the last field of the "perf" format; anchor after the last quoted field so a URL, referer or user agent
+    # containing "urt=" is never read as a latency.
+    if (!match($0, / rt=[0-9.]+ urt=([0-9.]+)[^"]*$/, u)) next
     method = r[1]; uri = r[2]; status = r[3]; urt = u[1] + 0
     ep = ""
     if (method == "GET" && status == "200" && uri ~ /^\/enrol\/index\.php(\?|$)/) ep = "GET /enrol/index.php 200"

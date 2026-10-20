@@ -90,7 +90,8 @@ class vendorpatch extends check {
             foreach (self::PATCHES[$patch] as [$component, $file, $marker, $needle, $vendorline]) {
                 $dir = \core_component::get_component_directory($component);
                 if ($dir !== null && get_config($component, 'version') !== false) {
-                    $release = (string) get_config($component, 'release');
+                    $info = \core_plugin_manager::instance()->get_plugin_info($component);
+                    $release = (string) ($info->release ?? '');
                     $targets[] = ["$patch: $component $release", "$dir/$file", $marker, $needle, $vendorline];
                 }
             }

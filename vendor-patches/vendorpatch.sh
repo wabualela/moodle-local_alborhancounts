@@ -5,7 +5,9 @@
 #   vendorpatch.sh status  [PATCH]          state of each patched file; exit 0 = applied, 1 = not applied, 3 = unknown
 #   vendorpatch.sh apply   [PATCH]          check hashes, dry run, back up, patch, keep owner/mode, php -l, verify
 #   vendorpatch.sh revert  [PATCH]          reverse the patch (patch -R), verify the original hashes
-#   vendorpatch.sh restore BACKUPDIR        copy the files saved by "apply" back (when revert is not possible)
+#   vendorpatch.sh restore BACKUPDIR [--force]
+#                                           put back the files saved by apply/revert (when revert is not possible);
+#                                           refuses if the vendor release changed since the backup, unless --force
 #
 # PATCH is the name of a .diff file next to this script without the extension (default: remui-counts).
 #   remui-counts           card counts through local_alborhancounts (theme_remui + local_edwiserpagebuilder)
@@ -19,6 +21,10 @@
 # Every target file must match the hash recorded in PATCH.sha256 (format: "<pre> <post> <path>"), so the patch is
 # applied only to the exact vendor release it was written and tested for. After a vendor upgrade "apply" refuses:
 # update the .diff and .sha256 in the repository, test, and release them first.
+#
+# Files are replaced by their owner (runuser), through a random temporary name and an atomic rename in the same
+# directory: root never writes inside the www-data-writable code tree, a planted symbolic link gains nothing, and a
+# PHP worker never reads a half-written file.
 
 set -euo pipefail
 
@@ -30,19 +36,55 @@ php=${PHP:-php8.4}
 usage() { sed -n '2,/^$/{s/^# \{0,1\}//;p}' "${BASH_SOURCE[0]}"; }
 die() { echo "vendorpatch: $*" >&2; exit 2; }
 
+# Replace (or create) file $1 with the content of $2, as the owner of the target (or of its directory).
+swap() {
+    local target=$1 source=$2 owner mode ref
+    [ ! -L "$target" ] || die "$target is a symbolic link; refusing"
+    if [ -e "$target" ]; then ref=$target; mode=$(stat -c %a "$target"); else ref=$(dirname "$target"); mode=$(stat -c %a "$source"); fi
+    owner=$(stat -c %U "$ref")
+    local run=()
+    # VP_TEST_RUNUSER lets dev/test_vendorpatch.sh exercise this path without root.
+    if [ "$(id -u)" -eq 0 ] || [ -n "${VP_TEST_RUNUSER:-}" ]; then
+        run=("${VP_TEST_RUNUSER:-$(command -v runuser || echo /usr/sbin/runuser)}" -u "$owner" --)
+    fi
+    # The source is opened by this shell and passed on stdin, so a private staging directory stays private.
+    "${run[@]}" sh -c 'set -e; t=$(mktemp "$1.vpnew.XXXXXX"); cat > "$t"; chmod "$2" "$t"; mv -fT "$t" "$1"' \
+        sh "$target" "$mode" < "$source" || die "could not replace $target"
+}
+
 cmd=${1:-}
 [ -n "$cmd" ] || { usage; exit 2; }
 case "$cmd" in -h|--help) usage; exit 0 ;; esac
 
 if [ "$cmd" = restore ]; then
     dir=${2:-}
-    [ -d "$dir" ] || die "restore needs the backup directory printed by apply"
+    force=${3:-}
+    [ -d "$dir/public" ] || die "restore needs the backup directory printed by apply or revert"
+    [ -z "$force" ] || [ "$force" = --force ] || die "unknown option $force"
     [ "$(id -u)" -eq 0 ] || [ "${ALLOW_NONROOT:-0}" = 1 ] || die "run with sudo"
-    (cd "$dir/public" && find . -type f -print) | while IFS= read -r f; do
-        f=${f#./}
-        # Copy next to the target, then rename: a PHP worker never reads a half-written file.
-        cp -a "$dir/public/$f" "$public/$f.vpnew" && mv -f "$public/$f.vpnew" "$public/$f"
-        echo "restored $public/$f"
+    # Refuse to mix releases: the vendor version.php files must be the ones saved with the backup.
+    if [ -d "$dir/meta" ]; then
+        while IFS= read -r v; do
+            v=${v#./}
+            cmp -s "$dir/meta/$v" "$public/$v" || [ "$force" = --force ] ||
+                die "$v changed since the backup (vendor upgrade?); nothing done. Use --force only if you are sure."
+        done < <(cd "$dir/meta" && find . -name version.php -type f -print)
+    elif [ "$force" != --force ]; then
+        die "the backup has no release information (meta/); nothing done. Use --force only if you are sure."
+    fi
+    files=()
+    while IFS= read -r f; do files+=("${f#./}"); done < <(cd "$dir/public" && find . -type f -print)
+    # Keep the files being replaced, so the restore itself can be undone.
+    pre="$backuproot/$(date -u +%Y%m%dT%H%M%SZ)-pre-restore"
+    mkdir -p "$pre/public"
+    for f in "${files[@]}"; do
+        if [ -e "$public/$f" ]; then (cd "$public" && cp -a --parents "$f" "$pre/public/"); fi
+    done
+    [ ! -d "$dir/meta" ] || cp -a "$dir/meta" "$pre/meta"
+    echo "saved the current files in $pre"
+    for f in "${files[@]}"; do
+        swap "$public/$f" "$dir/public/$f"
+        if cmp -s "$dir/public/$f" "$public/$f"; then echo "restored $public/$f"; else die "restore of $f failed"; fi
     done
     exit 0
 fi
@@ -57,6 +99,7 @@ sums="$here/$name.sha256"
 # State of one file: original, patched, or unknown (vendor changed, or edited by hand).
 state() {
     local pre=$1 post=$2 path=$3 sum
+    [ ! -L "$public/$path" ] || { echo unknown; return; }
     [ -f "$public/$path" ] || { echo missing; return; }
     sum=$(sha256sum "$public/$path" | cut -d' ' -f1)
     if [ "$sum" = "$pre" ]; then echo original
@@ -124,13 +167,16 @@ case "$cmd" in
         backup="$backuproot/$(date -u +%Y%m%dT%H%M%SZ)-$name-$cmd"
         mkdir -p "$backup/public"
         for f in "${files[@]}"; do (cd "$public" && cp -a --parents "$f" "$backup/public/"); done
+        # Release information, so "restore" can refuse to put these files into another vendor release.
+        mkdir -p "$backup/meta"
+        for f in "${files[@]}"; do
+            v="$(echo "$f" | cut -d/ -f1-2)/version.php"
+            [ ! -f "$public/$v" ] || (cd "$public" && cp -a --parents "$v" "$backup/meta/")
+        done
+        cp "$sums" "$backup/meta/"
         echo "saved the current files in $backup"
         for f in "${files[@]}"; do
-            # Same directory as the target, so mv is an atomic rename; keep the vendor owner and mode.
-            cp "$stage/$f" "$public/$f.vpnew"
-            chown --reference="$public/$f" "$public/$f.vpnew" 2>/dev/null || true
-            chmod --reference="$public/$f" "$public/$f.vpnew"
-            mv -f "$public/$f.vpnew" "$public/$f"
+            swap "$public/$f" "$stage/$f"
         done
         while read -r st path; do
             [ "$st" = "$done_state" ] || { echo "vendorpatch: $path is '$st' after $cmd; restore with: $0 restore $backup" >&2; exit 2; }

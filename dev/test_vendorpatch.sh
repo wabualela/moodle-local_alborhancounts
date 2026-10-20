@@ -28,6 +28,8 @@ same_file() { # file, file, name
 mkdir -p "$work/a/theme/x/classes" "$work/a/local/y/classes"
 printf '<?php\n$n = count($this->get_enrolled_students($course, $context));\n' > "$work/a/theme/x/classes/one.php"
 printf '<?php\nfunction two() {\n    return 2;\n}\n' > "$work/a/local/y/classes/two.php"
+printf "<?php\n\$plugin->release = '1.0';\n" > "$work/a/theme/x/version.php"
+printf "<?php\n\$plugin->release = '2.0';\n" > "$work/a/local/y/version.php"
 cp -r "$work/a" "$work/b"
 printf '<?php\n// ALBORHAN-PATCH test v1\n$n = 1;\n' > "$work/b/theme/x/classes/one.php"
 printf '<?php\nfunction two() {\n    return 22;\n}\n' > "$work/b/local/y/classes/two.php"
@@ -65,9 +67,10 @@ out=$(vp apply test 2>&1); expect_rc 0 $? "apply"
 same_file "$work/public/theme/x/classes/one.php" "$work/b/theme/x/classes/one.php" "apply: first file patched"
 same_file "$work/public/local/y/classes/two.php" "$work/b/local/y/classes/two.php" "apply: second file patched"
 [ "$(stat -c %a "$work/public/theme/x/classes/one.php")" = 664 ] && ok "apply keeps the file mode" || bad "apply keeps the file mode"
-[ -z "$(find "$work/public" -name '*.vpnew')" ] && ok "apply leaves no temporary file" || bad "apply leaves no temporary file"
+[ -z "$(find "$work/public" -name '*.vpnew*')" ] && ok "apply leaves no temporary file" || bad "apply leaves no temporary file"
 backup=$(echo "$out" | sed -n 's/^saved the current files in //p')
 [ -f "$backup/public/theme/x/classes/one.php" ] && ok "apply saves a backup" || bad "apply saves a backup"
+[ -f "$backup/meta/theme/x/version.php" ] && [ -f "$backup/meta/test.sha256" ] && ok "apply saves the release information" || bad "apply saves the release information"
 vp status test >/dev/null; expect_rc 0 $? "status after apply"
 
 out=$(vp apply test 2>&1); expect_rc 0 $? "apply again"
@@ -81,8 +84,37 @@ vp status test >/dev/null; expect_rc 1 $? "status after revert"
 # Restore from the backup taken by apply, after the live file was damaged.
 vp apply test >/dev/null 2>&1
 echo "damaged" >> "$work/public/theme/x/classes/one.php"
-vp restore "$backup" >/dev/null 2>&1; expect_rc 0 $? "restore"
+cp "$work/public/theme/x/classes/one.php" "$work/damaged.php"
+out=$(vp restore "$backup" 2>&1); expect_rc 0 $? "restore"
 same_file "$work/public/theme/x/classes/one.php" "$work/a/theme/x/classes/one.php" "restore puts the saved file back"
+pre=$(echo "$out" | sed -n 's/^saved the current files in //p')
+same_file "$pre/public/theme/x/classes/one.php" "$work/damaged.php" "restore keeps the replaced file"
+[ -z "$(find "$work/public" -name '*.vpnew*')" ] && ok "restore leaves no temporary file" || bad "restore leaves no temporary file"
+
+# Restore refuses to put files into another vendor release, unless forced.
+echo "// new release" >> "$work/public/theme/x/version.php"
+cp "$work/public/theme/x/classes/one.php" "$work/before.php"
+vp restore "$backup" >/dev/null 2>&1; expect_rc 2 $? "restore refuses after a vendor upgrade"
+same_file "$work/public/theme/x/classes/one.php" "$work/before.php" "refused restore changes nothing"
+vp restore "$backup" --force >/dev/null 2>&1; expect_rc 0 $? "restore --force"
+mkdir -p "$work/nometa/public/theme/x/classes" && cp "$work/a/theme/x/classes/one.php" "$work/nometa/public/theme/x/classes/"
+vp restore "$work/nometa" >/dev/null 2>&1; expect_rc 2 $? "restore refuses a backup without release information"
+
+# A symbolic link in place of a vendor file is never followed.
+reset_tree
+mv "$work/public/theme/x/classes/one.php" "$work/real-one.php"
+ln -s "$work/real-one.php" "$work/public/theme/x/classes/one.php"
+vp status test >/dev/null; expect_rc 3 $? "status reports a symbolic link as unknown"
+vp apply test >/dev/null 2>&1; expect_rc 2 $? "apply refuses a symbolic link"
+same_file "$work/real-one.php" "$work/a/theme/x/classes/one.php" "the link target is untouched"
+
+# A planted *.vpnew link next to a vendor file gains nothing (temporary names are random).
+reset_tree
+echo "secret" > "$work/victim"; chmod 600 "$work/victim"
+ln -s "$work/victim" "$work/public/theme/x/classes/one.php.vpnew"
+vp apply test >/dev/null 2>&1; expect_rc 0 $? "apply with a planted .vpnew link"
+[ "$(cat "$work/victim")" = secret ] && ok "planted link target untouched" || bad "planted link target untouched"
+rm -f "$work/public/theme/x/classes/one.php.vpnew"
 
 # A file that matches neither hash: status says unknown, apply refuses and changes nothing.
 reset_tree
@@ -109,6 +141,21 @@ reset_tree
 MOODLE_PUBLIC="$work/public" BACKUP_ROOT="$work/backups" bash "$work/vp/vendorpatch.sh" apply test >/dev/null 2>&1
 rc=$?
 if [ "$(id -u)" -eq 0 ]; then ok "root check skipped (running as root)"; else expect_rc 2 $rc "apply refuses without root"; fi
+
+# The owner-side swap (runuser) path, with a stand-in for runuser that checks its arguments.
+reset_tree
+cat > "$work/fake-runuser" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = -u ] && [ "$2" = "$(id -un)" ] && [ "$3" = -- ] || { echo "bad runuser arguments: $*" >&2; exit 9; }
+shift 3
+exec "$@"
+EOF
+chmod +x "$work/fake-runuser"
+VP_TEST_RUNUSER="$work/fake-runuser" vp apply test >/dev/null 2>&1; expect_rc 0 $? "apply through runuser"
+same_file "$work/public/theme/x/classes/one.php" "$work/b/theme/x/classes/one.php" "runuser path: file patched"
+[ "$(stat -c %a "$work/public/theme/x/classes/one.php")" = 664 ] && ok "runuser path keeps the file mode" || bad "runuser path keeps the file mode"
+VP_TEST_RUNUSER="$work/fake-runuser" vp revert test >/dev/null 2>&1; expect_rc 0 $? "revert through runuser"
+same_file "$work/public/theme/x/classes/one.php" "$work/a/theme/x/classes/one.php" "runuser path: file reverted"
 
 # Unknown patch name.
 vp status nosuchpatch >/dev/null 2>&1; expect_rc 2 $? "unknown patch name"

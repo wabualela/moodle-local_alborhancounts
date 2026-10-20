@@ -20,6 +20,16 @@ All notable changes to local_alborhancounts.
 - Tests: helper against a verbatim copy of the vendor function, caches and invalidation, status check, task, and
   `dev/test_vendorpatch.sh` (run in CI).
 
+### Review fixes (before release)
+- `vendorpatch.sh` replaces files as their owner (runuser) through a random temporary name and an atomic rename, and
+  refuses symbolic links, so root never writes inside the www-data-writable code tree.
+- `vendorpatch.sh restore` refuses a backup from another vendor release (saved `version.php`), unless `--force`;
+  keeps a copy of the files it replaces; verifies the result.
+- Course moves (`course_updated`) and category moves (`course_category_updated`) drop the shared cache.
+- The status check shows the vendor release from `version.php`.
+- `measure-endpoints.sh` reads the latency from the last log field and reports unreadable log files.
+- Tests no longer depend on the Edwiser plugins being absent from the code tree.
+
 ## [1.0.0] - unreleased (2026102000)
 ### Added
 - Daily scheduled task that rewrites `data-alborhan-count` markers in page-builder blocks with the rounded number

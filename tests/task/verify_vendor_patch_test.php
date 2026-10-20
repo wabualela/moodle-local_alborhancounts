@@ -72,11 +72,13 @@ final class verify_vendor_patch_test extends \advanced_testcase {
     }
 
     /**
-     * Passes when the check is not applicable (CI has no Edwiser plugin) or OK.
+     * Passes when the check is not applicable or OK.
      */
     public function test_passes(): void {
         $this->resetAfterTest();
         $this->expectOutputRegex('/' . preg_quote(get_string('checkvendorpatch_ok', 'local_alborhancounts'), '/') . '/');
+        // No expected patch, so the real check is not applicable even on a tree that has the Edwiser plugins.
+        set_config('vendorpatches', '', 'local_alborhancounts');
         (new verify_vendor_patch())->execute();
         $this->task_for("<?php\n// " . cards::PATCH_MARKER . "\n\\local_alborhancounts\\local\\cards::count_students(\$c, \$x);\n")
             ->execute();

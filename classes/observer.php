@@ -28,7 +28,7 @@ use local_alborhancounts\local\cards;
  */
 final class observer {
     /**
-     * A user was enrolled in or unenrolled from a course, or the course was deleted.
+     * A user was enrolled in or unenrolled from a course, or the course was updated (moved) or deleted.
      *
      * @param \core\event\base $event
      */
@@ -65,7 +65,8 @@ final class observer {
     }
 
     /**
-     * A role was deleted, a role definition was saved, or a user was deleted: drop everything (rare events).
+     * A role was deleted, a role definition was saved, a user was deleted or a category changed (moved): drop
+     * everything (rare events).
      *
      * @param \core\event\base $event
      */
