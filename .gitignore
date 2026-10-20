@@ -1,0 +1,11 @@
+# Editors and OS files.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local tooling.
+vendor/
+.phpunit.result.cache
+dev/tools/
