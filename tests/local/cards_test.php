@@ -180,6 +180,9 @@ final class cards_test extends \advanced_testcase {
     public function test_request_memo(): void {
         global $DB;
         $this->resetAfterTest();
+        // The observers run after the database transaction commits (internal => false); on PostgreSQL every test runs
+        // inside a transaction unless it opts out, so they would only run at the end of the test.
+        $this->preventResetByRollback();
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
         $generator->create_and_enrol($course, 'student');
@@ -235,6 +238,9 @@ final class cards_test extends \advanced_testcase {
     public function test_role_and_capability_changes(): void {
         global $DB;
         $this->resetAfterTest();
+        // The observers run after the database transaction commits (internal => false); on PostgreSQL every test runs
+        // inside a transaction unless it opts out, so they would only run at the end of the test.
+        $this->preventResetByRollback();
         $generator = $this->getDataGenerator();
         $category = $generator->create_category();
         $course = $generator->create_course(['category' => $category->id]);
