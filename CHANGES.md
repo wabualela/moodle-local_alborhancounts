@@ -4,7 +4,7 @@ All notable changes to local_alborhancounts.
 
 ## [Unreleased]
 
-## [1.1.0] - unreleased (2026102100)
+## [1.1.0] - 2026-10-20 (2026102100)
 ### Added
 - `\local_alborhancounts\local\cards::count_students()`: the Edwiser course-card student count with one `COUNT`
   query, the same number as the vendor's `get_enrolled_students()` for every viewer (separate groups included).
@@ -30,7 +30,7 @@ All notable changes to local_alborhancounts.
 - `measure-endpoints.sh` reads the latency from the last log field and reports unreadable log files.
 - Tests no longer depend on the Edwiser plugins being absent from the code tree.
 
-## [1.0.0] - unreleased (2026102000)
+## [1.0.0] - not released separately (2026102000; included in 1.1.0)
 ### Added
 - Daily scheduled task that rewrites `data-alborhan-count` markers in page-builder blocks with the rounded number
   of students of each course (hundreds, tens, or exact below 10, with "+" when rounded down).
